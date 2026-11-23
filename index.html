@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real Compounding vs. Compound Inflation Simulator</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #121212;
+      --border: #2a2a2a;
+      --text: #f2f2f2;
+      --muted: #8c8c8c;
+      --accent: #ffffff;
+      --accent-dim: #555555;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.5;
+      padding: 2rem 1.25rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .formula {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+    }
+
+    .grid-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .control-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1rem;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .control-value {
+      font-family: var(--mono);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1rem;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .stat-number {
+      font-family: var(--mono);
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 0.35rem;
+    }
+
+    .stat-sub {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    .chart-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.8rem;
+      font-family: var(--mono);
+      margin-bottom: 0.75rem;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .dot-solid {
+      width: 10px;
+      height: 2px;
+      background: var(--accent);
+      display: inline-block;
+    }
+
+    .dot-dashed {
+      width: 10px;
+      height: 0;
+      border-top: 2px dashed var(--accent-dim);
+      display: inline-block;
+    }
+
+    canvas {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+
+    .schedule-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+    }
+
+    .schedule-title {
+      font-size: 0.85rem;
+      font-family: var(--mono);
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .schedule-list {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .schedule-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      border-bottom: 1px solid #1d1d1d;
+      padding-bottom: 0.4rem;
+      gap: 0.5rem;
+    }
+
+    .schedule-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Real Compounding vs. Compound Inflation Simulator</h1>
+    <div class="formula" id="formulaDisplay">Nominal Rate i = (1 + r)(1 + &pi;) - 1 = 13.30%</div>
+  </header>
+
+  <section class="grid-controls">
+    <div class="control-card">
+      <div class="control-header">
+        <span>Initial Principal</span>
+        <span class="control-value" id="principalVal">1,000,000</span>
+      </div>
+      <input type="range" id="principal" min="100000" max="5000000" step="100000" value="1000000" />
+    </div>
+
+    <div class="control-card">
+      <div class="control-header">
+        <span>Real Growth Target (r)</span>
+        <span class="control-value" id="realRateVal">10.0%</span>
+      </div>
+      <input type="range" id="realRate" min="1" max="20" step="0.5" value="10" />
+    </div>
+
+    <div class="control-card">
+      <div class="control-header">
+        <span>Compound Inflation (&pi;)</span>
+        <span class="control-value" id="inflationVal">3.0%</span>
+      </div>
+      <input type="range" id="inflation" min="0" max="10" step="0.5" value="3" />
+    </div>
+
+    <div class="control-card">
+      <div class="control-header">
+        <span>Horizon (Years)</span>
+        <span class="control-value" id="yearsVal">15</span>
+      </div>
+      <input type="range" id="years" min="5" max="30" step="1" value="15" />
+    </div>
+
+    <div class="control-card">
+      <div class="control-header">
+        <span>Contract Multiplier / Pt</span>
+        <span class="control-value" id="multiplierVal">50</span>
+      </div>
+      <input type="range" id="multiplier" min="10" max="200" step="10" value="50" />
+    </div>
+  </section>
+
+  <section class="summary-grid">
+    <div class="stat-card">
+      <div class="stat-label">Inflation Baseline</div>
+      <div class="stat-number" id="statBaseline">1,557,967</div>
+      <div class="stat-sub" id="statBaselineSub">1.56x nominal equivalent</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Target Nominal Total</div>
+      <div class="stat-number" id="statTarget">6,507,710</div>
+      <div class="stat-sub" id="statRealMultiple">4.18x real purchasing power</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Cumulative Net Profit</div>
+      <div class="stat-number" id="statNetProfit">5,507,710</div>
+      <div class="stat-sub" id="statTotalPoints">110,154 total pts</div>
+    </div>
+  </section>
+
+  <section class="chart-box">
+    <div class="legend">
+      <span><i class="dot-solid"></i> Target Compounding Curve</span>
+      <span><i class="dot-dashed"></i> Inflation Baseline</span>
+    </div>
+    <canvas id="chart"></canvas>
+  </section>
+
+  <section class="schedule-box">
+    <div class="schedule-title">Annual Breakdown (Year | Baseline | Target | Net Gain | Required Pts)</div>
+    <div class="schedule-list" id="scheduleList"></div>
+  </section>
+
+  <script>
+    const els = {
+      principal: document.getElementById("principal"),
+      realRate: document.getElementById("realRate"),
+      inflation: document.getElementById("inflation"),
+      years: document.getElementById("years"),
+      multiplier: document.getElementById("multiplier"),
+      principalVal: document.getElementById("principalVal"),
+      realRateVal: document.getElementById("realRateVal"),
+      inflationVal: document.getElementById("inflationVal"),
+      yearsVal: document.getElementById("yearsVal"),
+      multiplierVal: document.getElementById("multiplierVal"),
+      formulaDisplay: document.getElementById("formulaDisplay"),
+      statBaseline: document.getElementById("statBaseline"),
+      statBaselineSub: document.getElementById("statBaselineSub"),
+      statTarget: document.getElementById("statTarget"),
+      statRealMultiple: document.getElementById("statRealMultiple"),
+      statNetProfit: document.getElementById("statNetProfit"),
+      statTotalPoints: document.getElementById("statTotalPoints"),
+      scheduleList: document.getElementById("scheduleList"),
+      canvas: document.getElementById("chart")
+    };
+
+    const fmt = (n) => Math.round(n).toLocaleString("en-US");
+
+    function update() {
+      const P = Number(els.principal.value);
+      const r = Number(els.realRate.value) / 100;
+      const pi = Number(els.inflation.value) / 100;
+      const T = Number(els.years.value);
+      const mult = Number(els.multiplier.value);
+      const nominalRate = (1 + r) * (1 + pi) - 1;
+
+      els.principalVal.textContent = fmt(P);
+      els.realRateVal.textContent = (r * 100).toFixed(1) + "%";
+      els.inflationVal.textContent = (pi * 100).toFixed(1) + "%";
+      els.yearsVal.textContent = T;
+      els.multiplierVal.textContent = fmt(mult);
+      els.formulaDisplay.textContent =
+        `Nominal Rate i = (1 + ${(r * 100).toFixed(1)}%)(1 + ${(pi * 100).toFixed(1)}%) - 1 = ${(nominalRate * 100).toFixed(2)}%`;
+
+      const targetSeries = [P];
+      const baseSeries = [P];
+      let rowsHTML = "";
+
+      for (let t = 1; t <= T; t++) {
+        const prevTarget = targetSeries[t - 1];
+        const currTarget = P * Math.pow(1 + nominalRate, t);
+        const currBase = P * Math.pow(1 + pi, t);
+        const netGain = currTarget - prevTarget;
+        const ptsYear = netGain / mult;
+        const ptsDay = ptsYear / 240;
+
+        targetSeries.push(currTarget);
+        baseSeries.push(currBase);
+
+        rowsHTML += `
+          <div class="schedule-row">
+            <span>Y${String(t).padStart(2, "0")}</span>
+            <span>Base: ${fmt(currBase)}</span>
+            <span>Target: ${fmt(currTarget)}</span>
+            <span>Gain: +${fmt(netGain)}</span>
+            <span>${fmt(ptsYear)} pts (${ptsDay.toFixed(2)}/d)</span>
+          </div>
+        `;
+      }
+
+      const finalTarget = targetSeries[T];
+      const finalBase = baseSeries[T];
+      const totalGain = finalTarget - P;
+      const totalPts = totalGain / mult;
+
+      els.statBaseline.textContent = fmt(finalBase);
+      els.statBaselineSub.textContent = `${(finalBase / P).toFixed(2)}x nominal equivalent`;
+      els.statTarget.textContent = fmt(finalTarget);
+      els.statRealMultiple.textContent = `${Math.pow(1 + r, T).toFixed(2)}x real purchasing power`;
+      els.statNetProfit.textContent = fmt(totalGain);
+      els.statTotalPoints.textContent = `${fmt(totalPts)} total pts`;
+      els.scheduleList.innerHTML = rowsHTML;
+
+      drawChart(targetSeries, baseSeries);
+    }
+
+    function drawChart(targetSeries, baseSeries) {
+      const canvas = els.canvas;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+
+      const ctx = canvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+      const pad = { top: 16, right: 16, bottom: 28, left: 68 };
+      const plotW = w - pad.left - pad.right;
+      const plotH = h - pad.top - pad.bottom;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const maxVal = Math.max(...targetSeries) * 1.05;
+      const minVal = Math.min(...baseSeries) * 0.9;
+      const T = targetSeries.length - 1;
+
+      const xPos = (t) => pad.left + (t / T) * plotW;
+      const yPos = (v) => pad.top + plotH - ((v - minVal) / (maxVal - minVal)) * plotH;
+
+      // Grid lines
+      ctx.strokeStyle = "#222222";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#777777";
+      ctx.font = "11px monospace";
+      ctx.textAlign = "right";
+
+      for (let i = 0; i <= 4; i++) {
+        const val = minVal + ((maxVal - minVal) / 4) * i;
+        const y = yPos(val);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(w - pad.right, y);
+        ctx.stroke();
+        ctx.fillText((val / 1000000).toFixed(2) + "M", pad.left - 8, y + 4);
+      }
+
+      // X labels
+      ctx.textAlign = "center";
+      const step = Math.max(1, Math.floor(T / 5));
+      for (let t = 0; t <= T; t += step) {
+        ctx.fillText("Y" + t, xPos(t), h - 8);
+      }
+
+      // Inflation baseline (dashed)
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = "#666666";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      baseSeries.forEach((v, t) => {
+        t === 0 ? ctx.moveTo(xPos(t), yPos(v)) : ctx.lineTo(xPos(t), yPos(v));
+      });
+      ctx.stroke();
+      ctx.restore();
+
+      // Target compounding curve (solid white)
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      targetSeries.forEach((v, t) => {
+        t === 0 ? ctx.moveTo(xPos(t), yPos(v)) : ctx.lineTo(xPos(t), yPos(v));
+      });
+      ctx.stroke();
+    }
+
+    ["principal", "realRate", "inflation", "years", "multiplier"].forEach((id) => {
+      els[id].addEventListener("input", update);
+    });
+    window.addEventListener("resize", update);
+    update();
+  </script>
+</body>
+</html>
